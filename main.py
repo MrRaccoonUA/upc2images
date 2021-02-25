@@ -3,7 +3,13 @@ import json
 import time
 import logging
 import re
+import os
+import urllib.request
+from PIL import Image
 from collections import namedtuple
+
+if not os.path.exists("images"):
+    os.mkdir("images")
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG, filename='log_report.txt',
@@ -26,8 +32,9 @@ def api_search(upc, API_URL):
     }
     resp = requests.get(API_URL + upc, headers=headers)
     data = json.loads(resp.text)
-    logger.info(f'UPC: {upc} - Status: {data["code"]}')
-    if data['code'] != 'OK':
+    logger.info(f'UPC: {upc} - API Status: {data["code"]}')
+    if data['code'] != 'OK' or len(data['items']) == 0:
+        logger.error(f'UPC: {upc} - API ERROR Status: {data["code"]}')
         return None
     product_info = namedtuple('Product', 'UPC Product_Name Images_Links')
     product_info = product_info(data['items'][0]['ean'], data['items'][0]['title'], data['items'][0]['images'])
@@ -57,14 +64,14 @@ def link_extractor(upc, list_of_links):
         link = namedtuple('Link', 'resized_link')
         resized_link = re.sub(str(default_size), str(max_size), target[0])
         link = link(resized_link)
-        logger.info(f'UPC: {upc} - Status: Image OK')
+        logger.info(f'UPC: {upc} - Image Status: OK')
         return link
 
     def walmart_extractor(walmart):
         link = namedtuple('Link', 'resized_link')
         resized_link = re.sub(r"[?].+", "", walmart[0])
         link = link(resized_link)
-        logger.info(f'UPC: {upc} - Status: Image OK')
+        logger.info(f'UPC: {upc} - Image Status: OK')
         return link
 
     TARGET_DEFAULT_SIZE = 1000
@@ -79,18 +86,44 @@ def link_extractor(upc, list_of_links):
     if walmart_prefix:
         return walmart_extractor(walmart_prefix)
 
-    return logger.info(f'UPC: {upc} - Status: No image')
+    return logger.info(f'UPC: {upc} - Image Status: No image')
 
 
 def image_name(upc, product_name):
-    File_Name = namedtuple('File_Name', 'file_name')
+    File_Name = namedtuple('File_Name', 'name')
     character_search = re.sub(r'[-,?%/®\"]\s|(/)|(\")|[-]', ' ', product_name)
     delete_spaces = character_search.replace(' ', '_')
     delete_double_underscore = delete_spaces.replace('__', '_')
-    log_upc = upc + ' - ' + delete_double_underscore
-    logger.info(f'Rename file {log_upc}: OK')
+    logger.info(f'UPC: {upc} - Rename {delete_double_underscore}: OK')
 
     return File_Name(delete_double_underscore)
+
+
+def download_image(upc, link, name, width_dimension, height_dimension):
+    """
+
+    :param upc: Universal Product Code
+    :param link: url to the image
+    :param name: name of the image
+    :param width_dimension: specified size in width
+    :param height_dimension: specified size in height
+    :return: download image
+    """
+
+    def get_image_from_url(url, dir_path, full_name):
+        full_path = os.path.join(dir_path, '.'.join((full_name, 'jpg')))
+        urllib.request.urlretrieve(url, full_path)
+        urllib.request.urlcleanup()
+
+    im = Image.open(urllib.request.urlopen(link))
+    width, height = im.size
+
+    if width >= width_dimension or height >= height_dimension:
+        get_image_from_url(link, 'images/', name)
+        logger.info(f'UPC: {upc} - Download Status: OK')
+    else:
+        logger.error(f'UPC: {upc} - Download Status: Wrong size {width}, {height}')
+    im.close()
 
 
 if __name__ == '__main__':
@@ -106,16 +139,19 @@ if __name__ == '__main__':
     API_URL_GET = 'https://api.upcitemdb.com/prod/trial/lookup?upc='
 
     for code in upc_list:
-        start_time = time.time()
+
+        API_COOL_DOWN_TIMEOUT_SECS = 10
+        if len(upc_list) > 0 and code != upc_list[-1] and code != upc_list[0]:
+            time.sleep(API_COOL_DOWN_TIMEOUT_SECS)
 
         detail = api_search(code, API_URL_GET)
         if not detail:
             continue
         extracted_link = link_extractor(detail.UPC, detail.Images_Links)
-        image_name(detail.UPC, detail.Product_Name)
+        if not extracted_link:
+            continue
+        file_name = image_name(detail.UPC, detail.Product_Name)
 
-        API_COOL_DOWN_TIMEOUT = 10
-        iteration_time = time.time() - start_time
-        cool_down = API_COOL_DOWN_TIMEOUT - iteration_time
-        if len(upc_list) > 1 and code != upc_list[-1]:
-            time.sleep(cool_down)
+        WIDTH_DIMENSION, HEIGHT_DIMENSION = 600, 600
+
+        download_image(detail.UPC, extracted_link.resized_link, file_name.name, WIDTH_DIMENSION, HEIGHT_DIMENSION)
