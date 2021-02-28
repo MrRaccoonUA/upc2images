@@ -15,10 +15,12 @@ logging.basicConfig(level=logging.DEBUG, filename='log_report.txt',
 
 
 class Downloader:
-    def __init__(self, path_folder, upc):
+    def __init__(self, path_folder, upc, width_dimension, height_dimension):
         self.file_path = path_folder
         self.API_URL = 'https://api.upcitemdb.com/prod/trial/lookup?upc='
         upc_list = upc.split(', ')
+        self.width_dimension = int(width_dimension)
+        self.height_dimension = int(height_dimension)
 
         for code in upc_list:
 
@@ -34,9 +36,9 @@ class Downloader:
                 continue
             file_name = self.image_name(detail.UPC, detail.Product_Name)
 
-            WIDTH_DIMENSION, HEIGHT_DIMENSION = 600, 600
+            # WIDTH_DIMENSION, HEIGHT_DIMENSION = 600, 600
 
-            self.download_image(detail.UPC, extracted_link.resized_link, file_name.name, WIDTH_DIMENSION, HEIGHT_DIMENSION)
+            self.download_image(detail.UPC, extracted_link.resized_link, file_name.name)
 
     def api_search(self, upc):
         """
@@ -116,7 +118,7 @@ class Downloader:
 
         return File_Name(delete_double_underscore)
 
-    def download_image(self, upc, link, name, width_dimension, height_dimension):
+    def download_image(self, upc, link, name):
         """
 
         :param upc: Universal Product Code
@@ -135,7 +137,7 @@ class Downloader:
         im = Image.open(urllib.request.urlopen(link))
         width, height = im.size
 
-        if width >= width_dimension or height >= height_dimension:
+        if width >= self.width_dimension or height >= self.height_dimension:
             get_image_from_url(link, self.file_path + '/',  name)
             logger.info(f'UPC: {upc} - Download Status: OK')
         else:
