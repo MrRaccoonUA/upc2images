@@ -17,17 +17,10 @@ class Window:
         self.upc = ''
         self.SaveFunction()
         self.UpcFunction()
-        # self.width_height()
 
     def SaveFunction(self):
         self.entryPath.place(relx=.6, rely=.05, anchor="c")
         Button(self.root, text='Save to...', command=self.btnSaveClick).place(x=0, y=0)
-
-    # def width_height(self):
-    #     self.entryWidth.place(relx=.23, rely=.4, anchor="c")
-    #     Label(self.root, text='Width', font='Arial 12').place(relx=.15, rely=.25)
-    #     self.entryHeight.place(relx=.55, rely=.4, anchor="c")
-    #     Label(self.root, text='Height', font='Arial 12').place(relx=.47, rely=.25)
 
     def UpcFunction(self):
         self.entryWidth.place(relx=.23, rely=.4, anchor="c")

@@ -36,8 +36,6 @@ class Downloader:
                 continue
             file_name = self.image_name(detail.UPC, detail.Product_Name)
 
-            # WIDTH_DIMENSION, HEIGHT_DIMENSION = 600, 600
-
             self.download_image(detail.UPC, extracted_link.resized_link, file_name.name)
 
     def api_search(self, upc):
