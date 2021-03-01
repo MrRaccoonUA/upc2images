@@ -48,9 +48,6 @@ class Downloader:
             if code == upc_list[-1]:
                 mb.showinfo(message='The search has done!')
 
-    def progressBar(self):
-        pass
-
     def api_search(self, upc):
         """
 
