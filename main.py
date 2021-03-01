@@ -7,6 +7,8 @@ import os
 import urllib.request
 from PIL import Image
 from collections import namedtuple
+from tkinter.ttk import Progressbar
+from tkinter import messagebox as mb
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG, filename='log_report.txt',
@@ -15,14 +17,19 @@ logging.basicConfig(level=logging.DEBUG, filename='log_report.txt',
 
 
 class Downloader:
-    def __init__(self, path_folder, upc, width_dimension, height_dimension):
+    def __init__(self, path_folder, upc, width_dimension, height_dimension, root):
         self.file_path = path_folder
         self.API_URL = 'https://api.upcitemdb.com/prod/trial/lookup?upc='
         upc_list = upc.split(', ')
         self.width_dimension = int(width_dimension)
         self.height_dimension = int(height_dimension)
+        self.pb = Progressbar(root, orient='horizontal', mode='determinate', length=250)
+        self.pb.place(relx=.1, rely=.65)
+        self.pb.configure(maximum=len(upc_list))
 
         for code in upc_list:
+            self.pb.configure(value=upc_list.index(code) + 1)
+            self.pb.update()
 
             API_COOL_DOWN_TIMEOUT_SECS = 10
             if len(upc_list) > 0 and code != upc_list[-1] and code != upc_list[0]:
@@ -37,6 +44,12 @@ class Downloader:
             file_name = self.image_name(detail.UPC, detail.Product_Name)
 
             self.download_image(detail.UPC, extracted_link.resized_link, file_name.name)
+
+            if code == upc_list[-1]:
+                mb.showinfo(message='The search has done!')
+
+    def progressBar(self):
+        pass
 
     def api_search(self, upc):
         """
