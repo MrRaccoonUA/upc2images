@@ -17,33 +17,46 @@ logging.basicConfig(level=logging.DEBUG, filename='log_report.txt',
 
 
 class Downloader:
-    def __init__(self, path_folder, upc, width_dimension, height_dimension, root):
+    def __init__(self, path_folder, upc, width_dimension, height_dimension, root, headers):
         self.file_path = path_folder
-        self.API_URL = 'https://api.upcitemdb.com/prod/trial/lookup?upc='
         upc_list = upc.split(', ')
         self.width_dimension = int(width_dimension)
         self.height_dimension = int(height_dimension)
         self.pb = Progressbar(root, orient='horizontal', mode='determinate', length=250)
-        self.pb.place(relx=.1, rely=.65)
+        self.pb.place(relx=.1, rely=.75)
         self.pb.configure(maximum=len(upc_list))
+        self.headers = headers
+        if self.headers['user_key'] != 'only_for_dev_or_pro':
+            self.API_URL = 'https://api.upcitemdb.com/prod/v1/lookup?upc='
+            self.API_COOL_DOWN_TIMEOUT_SECS = 2
+        else:
+            self.API_URL = 'https://api.upcitemdb.com/prod/trial/lookup?upc='
+            self.API_COOL_DOWN_TIMEOUT_SECS = 10
 
         for code in upc_list:
-            self.pb.configure(value=upc_list.index(code) + 1)
-            self.pb.update()
-
-            API_COOL_DOWN_TIMEOUT_SECS = 10
             if len(upc_list) > 0 and code != upc_list[-1] and code != upc_list[0]:
-                time.sleep(API_COOL_DOWN_TIMEOUT_SECS)
+                time.sleep(self.API_COOL_DOWN_TIMEOUT_SECS)
 
             detail = self.api_search(code)
             if not detail:
+                if code == upc_list[-1]:
+                    self.pb.configure(value=upc_list.index(code) + 1)
+                    self.pb.update()
+                    mb.showinfo(message='The search has done!')
                 continue
             extracted_link = self.link_extractor(detail.UPC, detail.Images_Links)
             if not extracted_link:
+                if code == upc_list[-1]:
+                    self.pb.configure(value=upc_list.index(code) + 1)
+                    self.pb.update()
+                    mb.showinfo(message='The search has done!')
                 continue
             file_name = self.image_name(detail.UPC, detail.Product_Name)
 
             self.download_image(detail.UPC, extracted_link.resized_link, file_name.name)
+
+            self.pb.configure(value=upc_list.index(code) + 1)
+            self.pb.update()
 
             if code == upc_list[-1]:
                 mb.showinfo(message='The search has done!')
@@ -54,13 +67,7 @@ class Downloader:
         :param upc: Universal Product Code
         :return: named tuple which contains the UPC, Product Name and List of links
         """
-        headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'user_key': 'only_for_dev_or_pro',
-            'key_type': '3scale'
-        }
-        resp = requests.get(self.API_URL + upc, headers=headers)
+        resp = requests.get(self.API_URL + upc, headers=self.headers)
         data = json.loads(resp.text)
         logger.info(f'UPC: {upc} - API Status: {data["code"]}')
         if data['code'] != 'OK' or len(data['items']) == 0:
